@@ -5,7 +5,7 @@ import "slices"
 type Block struct {
 	Address  uint64
 	ElemSize int
-	Objs     []Pointer
+	Objects  []Pointer
 }
 
 func Blk(addr uint64, esize int, objs ...Pointer) Block {
@@ -44,17 +44,13 @@ type Heap struct {
 }
 
 func (h *Heap) BlockOf(p Pointer) *Block {
-	for j := range h.Blocks {
-		if i := slices.Index(h.Blocks[j].Objs, p); i >= 0 {
-			return &h.Blocks[j]
-		}
-	}
-	return nil
+	b, _ := h.BlockIdx(p)
+	return b
 }
 
 func (h *Heap) BlockIdx(p Pointer) (*Block, int) {
 	for j := range h.Blocks {
-		if i := slices.Index(h.Blocks[j].Objs, p); i >= 0 {
+		if i := slices.Index(h.Blocks[j].Objects, p); i >= 0 {
 			return &h.Blocks[j], i
 		}
 	}
@@ -73,3 +69,12 @@ type Root struct {
 	Name    string
 	Pointer Pointer
 }
+
+type Context struct {
+	Root   int
+	Block  *Block
+	Object Pointer
+	Field  int
+}
+
+var Empty = Context{-1, nil, Nil, -1}

@@ -15,7 +15,7 @@ func main() {
 		{"var a *T", 2},
 		{"var b *T", 6},
 	}
-	heap := Heap{
+	heap := &Heap{
 		Objects: []Object{
 			Nil:  Obj("nil"),    // Nil.
 			Free: Obj("<free>"), // Free block sentinel.
@@ -40,53 +40,33 @@ func main() {
 		},
 	}
 
-	{
-		ms := MarkSweep{
-			Roots: roots,
-			Heap:  &heap,
-		}
-		ms.init()
-		i := 0
-		renderMarkSweep := func() {
-			fname := fmt.Sprintf("./img/marksweep-%03d.png", i)
-			fmt.Println("generating", fname)
-			must(Draw(&ms).SavePNG(fname))
-			i++
-		}
-		renderMarkSweep()
-		for ms.Next() {
-			renderMarkSweep()
-		}
+	ms := NewMarkSweep(roots, heap)
+	i := 0
+	for s := range ms.Evolve() {
+		fname := fmt.Sprintf("./img/marksweep-%03d.png", i)
+		fmt.Println("generating", fname)
+		must(Draw(s).SavePNG(fname))
+		i++
 	}
 
-	{
-		gt := GreenTea{
-			Roots: roots,
-			Heap:  &heap,
-		}
-		gt.init()
-		i := 0
-		renderGreenTea := func() {
-			fname := fmt.Sprintf("./img/greentea-%03d.png", i)
-			fmt.Println("generating", fname)
-			must(Draw(&gt).SavePNG(fname))
-			i++
-		}
-		renderGreenTea()
-		for gt.Next() {
-			renderGreenTea()
-		}
+	gt := NewGreenTea(roots, heap)
+	i = 0
+	for s := range gt.Evolve() {
+		fname := fmt.Sprintf("./img/greentea-%03d.png", i)
+		fmt.Println("generating", fname)
+		must(Draw(s).SavePNG(fname))
+		i++
 	}
 }
 
 type gcState interface {
-	Next() bool
-	heap() *Heap
-	roots() ([]Root, int)
-	marked() *Set[Pointer]
-	fieldsVisited() map[Pointer]int
-	curr() (int, *Block, Pointer, int)
-	drawExtra(*gg.Context, image.Rectangle)
+	Evolve() iter.Seq[gcState]
+	Heap() *Heap
+	Roots() ([]Root, int)
+	Marked() *Set[Pointer]
+	FieldsVisited() map[Pointer]int
+	Context() Context
+	DrawExtra(*gg.Context, image.Rectangle)
 }
 
 func Draw(s gcState) *gg.Context {
@@ -103,11 +83,11 @@ func Draw(s gcState) *gg.Context {
 		"}"
 
 	area := drawObjGraph(c, info, s)
-	s.drawExtra(c, area)
+	s.DrawExtra(c, area)
 	return c
 }
 
-func (m *MarkSweep) drawExtra(c *gg.Context, area image.Rectangle) {
+func (m *MarkSweep) DrawExtra(c *gg.Context, area image.Rectangle) {
 	const padding = 32
 	c.SetRGB(0, 0, 0)
 	must(c.LoadFontFace("./RobotoMono-Regular.ttf", 36))
@@ -120,13 +100,13 @@ func (m *MarkSweep) drawExtra(c *gg.Context, area image.Rectangle) {
 
 	must(c.LoadFontFace("./RobotoMono-Regular.ttf", 32))
 	ly -= 16
-	for _, p := range m.Stack {
-		c.DrawStringAnchored(fmt.Sprintf("0x%x", m.Heap.AddressOf(p)), float64(area.Min.X)+padding, ly, 0, 0)
+	for _, p := range m.stack {
+		c.DrawStringAnchored(fmt.Sprintf("0x%x", m.heap.AddressOf(p)), float64(area.Min.X)+padding, ly, 0, 0)
 		ly -= 40
 	}
 }
 
-func (g *GreenTea) drawExtra(c *gg.Context, area image.Rectangle) {
+func (g *GreenTea) DrawExtra(c *gg.Context, area image.Rectangle) {
 	const padding = 32
 	c.SetRGB(0, 0, 0)
 	must(c.LoadFontFace("./RobotoMono-Regular.ttf", 36))
@@ -139,7 +119,7 @@ func (g *GreenTea) drawExtra(c *gg.Context, area image.Rectangle) {
 
 	must(c.LoadFontFace("./RobotoMono-Regular.ttf", 32))
 	ly -= 16
-	for b := range g.Queue.All() {
+	for b := range g.queue.All() {
 		c.DrawStringAnchored(fmt.Sprintf("0x%x", b.Address), float64(area.Min.X)+padding, ly, 0, 0)
 		ly -= 40
 	}
@@ -148,11 +128,11 @@ func (g *GreenTea) drawExtra(c *gg.Context, area image.Rectangle) {
 func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 	const fade = float64(0.6)
 
-	roots, rootsVisited := s.roots()
-	h := s.heap()
-	marked := s.marked()
-	fieldsVisited := s.fieldsVisited()
-	currRoot, _, currObj, currField := s.curr()
+	roots, rootsVisited := s.Roots()
+	h := s.Heap()
+	marked := s.Marked()
+	fieldsVisited := s.FieldsVisited()
+	ctx := s.Context()
 
 	split := c.Width() / 4
 	infoArea := image.Rect(0, 0, split, 192)
@@ -232,7 +212,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 
 		const objPadding = 16
 		baseObjX := bx + objPadding
-		for j, p := range b.Objs {
+		for j, p := range b.Objects {
 			obj := &h.Objects[p]
 
 			ox := baseObjX
@@ -264,7 +244,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 				fi := f.Offset / PointerSize
 
 				if marked.Has(p) {
-					if currObj >= 0 && currObj == p && currField >= 0 && currField == k {
+					if ctx.Object == p && ctx.Field >= 0 && ctx.Field == k {
 						c.SetRGB(1, 0, 0)
 					} else {
 						c.SetRGB(0, 0, 0)
@@ -292,7 +272,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 		if !ok {
 			continue
 		}
-		if currRoot >= 0 && i == currRoot {
+		if ctx.Root >= 0 && i == ctx.Root {
 			c.SetRGB(1, 0, 0)
 		} else if i < rootsVisited {
 			c.SetRGB(0, 0, 0)
@@ -316,7 +296,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 				continue
 			}
 
-			if currObj >= 0 && currObj == p && currField >= 0 && currField == i {
+			if ctx.Object == p && ctx.Field >= 0 && ctx.Field == i {
 				c.SetRGB(1, 0, 0)
 			} else if i < fieldsVisited[p] {
 				c.SetRGB(0, 0, 0)
