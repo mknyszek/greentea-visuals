@@ -131,7 +131,7 @@ func (g *GreenTea) DrawExtra(c *gg.Context, area image.Rectangle) {
 
 func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 	faded := color.Gray{Y: 153}
-	highlight := color.RGBA{R: 255, G: 0, B: 0, A: 255}
+	highlight := color.RGBA{R: 0xff, G: 0, B: 0, A: 255}
 
 	roots, rootsVisited := s.Roots()
 	h := s.Heap()
@@ -150,7 +150,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 
 	c.SetLineCapButt()
 	c.SetLineJoin(gg.LineJoinRound)
-	c.SetLineWidth(3.0)
+	c.SetLineWidth(4.0)
 
 	c.DrawRectangle(float64(infoArea.Min.X+16), float64(infoArea.Min.Y+16), float64(infoArea.Dx()-32), float64(infoArea.Dy()-32))
 	c.Stroke()
@@ -211,12 +211,14 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 
 		if ctx.Block == b {
 			c.SetColor(highlight)
+			c.SetDash()
+			c.SetLineWidth(3.0)
 		} else {
 			c.SetColor(color.Black)
+			c.SetLineWidth(2.0)
 		}
-		c.SetLineWidth(2.0)
 		c.SetDash(4.0)
-		c.DrawRectangle(bx, by, blockWidth, blockHeight)
+		c.DrawRoundedRectangle(bx, by, blockWidth, blockHeight, 12.0)
 		c.Stroke()
 		c.DrawStringAnchored(fmt.Sprintf("0x%x", b.Address), bx, by-12, 0, 0)
 
@@ -232,7 +234,42 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 			width := b.ElemSize / PointerSize * ptrWordSize
 			baseObjX += float64(width + objPadding)
 
-			if marked.Has(p) {
+			// Draw object pointer fields.
+			objBoxes[p] = image.Rect(int(ox), int(oy), int(ox)+width, int(oy+ptrWordSize))
+			for k, f := range obj.Fields {
+				fi := f.Offset / PointerSize
+
+				if marked.Has(p) {
+					c.SetColor(color.Black)
+				} else {
+					c.SetColor(faded)
+				}
+
+				c.SetDash()
+				c.SetLineWidth(2.0)
+				c.DrawRectangle(ox+float64(fi*ptrWordSize), oy, ptrWordSize, ptrWordSize)
+				c.Stroke()
+
+				if marked.Has(p) {
+					if ctx.Object == p && ctx.Field >= 0 && ctx.Field == k {
+						c.SetColor(highlight)
+					} else {
+						c.SetColor(color.Black)
+					}
+				} else {
+					c.SetColor(faded)
+				}
+
+				cx := ox + float64(fi*ptrWordSize) + ptrWordSize/2
+				cy := oy + ptrWordSize/2
+				c.DrawCircle(cx, cy, ptrWordSize/6)
+				c.Fill()
+			}
+
+			// Draw object boundary.
+			if ctx.Object == p {
+				c.SetColor(highlight)
+			} else if marked.Has(p) {
 				c.SetColor(color.Black)
 			} else {
 				c.SetColor(faded)
@@ -250,29 +287,6 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 			c.SetLineWidth(4.0)
 			c.DrawRectangle(ox, oy, float64(width), ptrWordSize)
 			c.Stroke()
-
-			objBoxes[p] = image.Rect(int(ox), int(oy), int(ox)+width, int(oy+ptrWordSize))
-			for k, f := range obj.Fields {
-				fi := f.Offset / PointerSize
-
-				if marked.Has(p) {
-					if ctx.Object == p && ctx.Field >= 0 && ctx.Field == k {
-						c.SetColor(highlight)
-					} else {
-						c.SetColor(color.Black)
-					}
-				} else {
-					c.SetColor(faded)
-				}
-
-				c.DrawRectangle(ox+float64(fi*ptrWordSize), oy, ptrWordSize, ptrWordSize)
-				c.Stroke()
-
-				cx := ox + float64(fi*ptrWordSize) + ptrWordSize/2
-				cy := oy + ptrWordSize/2
-				c.DrawCircle(cx, cy, ptrWordSize/6)
-				c.Fill()
-			}
 		}
 	}
 
