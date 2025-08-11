@@ -294,7 +294,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 		src := rootAnchors[i]
 		dst := minDistPtOnRect(src, dstR, ptrWordSize/3)
 
-		drawArrow(c, float64(src.X), float64(src.Y), float64(dst.X), float64(dst.Y))
+		drawArrow(c, float64(src.X), float64(src.Y), float64(dst.X), float64(dst.Y), 3.0)
 	}
 	for i := range h.Objects {
 		p := Pointer(i)
@@ -319,22 +319,23 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 			src := image.Pt(src.Min.X+fi*ptrWordSize+ptrWordSize/2, src.Min.Y+ptrWordSize/2)
 			dst := minDistPtOnRect(src, dstR, ptrWordSize/3)
 
-			drawArrow(c, float64(src.X), float64(src.Y), float64(dst.X), float64(dst.Y))
+			drawArrow(c, float64(src.X), float64(src.Y), float64(dst.X), float64(dst.Y), 3.0)
 		}
 	}
 	return restArea
 }
 
-func drawArrow(c *gg.Context, srcX, srcY, dstX, dstY float64) {
-	c.SetLineWidth(3.0)
+func drawArrow(c *gg.Context, srcX, srcY, dstX, dstY, width float64) {
+	c.SetLineWidth(width)
 
 	dist2 := (dstX-srcX)*(dstX-srcX) + (dstY-srcY)*(dstY-srcY)
 	c.MoveTo(srcX, srcY)
 	c.LineTo(dstX, dstY)
 	c.Stroke()
 
-	const al = 20
+	const alBase = 7
 	const th = math.Pi / 8
+	al := alBase * width
 	vx := (srcX - dstX) / math.Sqrt(dist2) * al
 	vy := (srcY - dstY) / math.Sqrt(dist2) * al
 	vx1 := vx*math.Cos(th) - vy*math.Sin(th)
