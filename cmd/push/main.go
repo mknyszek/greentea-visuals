@@ -10,13 +10,14 @@ import (
 	"fmt"
 	"log"
 
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v2"
 	"google.golang.org/api/option"
 	"google.golang.org/api/slides/v1"
 )
 
-var presentationID = flag.String("presentation", "", "ID of the presentation to push to")
+var (
+	presentationID = flag.String("presentation", "", "ID of the presentation to push to")
+)
 
 func main() {
 	flag.Parse()
@@ -39,15 +40,16 @@ func createImageSlide(presentationID, imageURL string) error {
 func addImageToSlide(presentationID, slideID, imageURL string) error {
 	slidesService := slidesClient()
 
-	emu4M := slides.Dimension{Magnitude: 4000000, Unit: "EMU"}
+	width := slides.Dimension{Magnitude: 10 * 914400 /*10 inches*/, Unit: "EMU"}
+	height := slides.Dimension{Magnitude: 5.63 * 914400 /*5.63 inches*/, Unit: "EMU"}
 	requests := []*slides.Request{{
 		CreateImage: &slides.CreateImageRequest{
 			Url: imageURL,
 			ElementProperties: &slides.PageElementProperties{
 				PageObjectId: slideID,
 				Size: &slides.Size{
-					Height: &emu4M,
-					Width:  &emu4M,
+					Width:  &width,
+					Height: &height,
 				},
 				Transform: &slides.AffineTransform{
 					ScaleX:     1.0,
@@ -96,14 +98,7 @@ func createSlide(presentationID string) (string, error) {
 
 func slidesClient() *slides.Service {
 	ctx := context.Background()
-	// Uses env GOOGLE_APPLICATION_CREDENTIALS
-	client, err := google.DefaultClient(ctx,
-		drive.DriveScope,
-		slides.PresentationsScope)
-	if err != nil {
-		log.Fatalf("error creating Google client: %v", err)
-	}
-	slidesService, err := slides.NewService(ctx, option.WithHTTPClient(client))
+	slidesService, err := slides.NewService(ctx, option.WithScopes(drive.DriveScope, slides.PresentationsScope))
 	if err != nil {
 		log.Fatalf("error creating Slides client: %v", err)
 	}
