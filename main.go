@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"iter"
 	"log"
 	"math"
@@ -89,7 +90,7 @@ func Draw(s gcState) *gg.Context {
 
 func (m *MarkSweep) DrawExtra(c *gg.Context, area image.Rectangle) {
 	const padding = 32
-	c.SetRGB(0, 0, 0)
+	c.SetColor(color.Black)
 	must(c.LoadFontFace("./RobotoMono-Regular.ttf", 36))
 
 	c.DrawStringAnchored("Stack", float64(area.Min.X)+padding, float64(area.Max.Y)-padding, 0, 0)
@@ -108,7 +109,7 @@ func (m *MarkSweep) DrawExtra(c *gg.Context, area image.Rectangle) {
 
 func (g *GreenTea) DrawExtra(c *gg.Context, area image.Rectangle) {
 	const padding = 32
-	c.SetRGB(0, 0, 0)
+	c.SetColor(color.Black)
 	must(c.LoadFontFace("./RobotoMono-Regular.ttf", 36))
 
 	c.DrawStringAnchored("Queue", float64(area.Min.X)+padding, float64(area.Max.Y)-padding, 0, 0)
@@ -126,7 +127,8 @@ func (g *GreenTea) DrawExtra(c *gg.Context, area image.Rectangle) {
 }
 
 func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
-	const fade = float64(0.6)
+	faded := color.Gray{Y: 153}
+	highlight := color.RGBA{R: 255, G: 0, B: 0, A: 255}
 
 	roots, rootsVisited := s.Roots()
 	h := s.Heap()
@@ -140,7 +142,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 	heapArea := image.Rect(split, 0, c.Width(), c.Height())
 	restArea := image.Rect(0, rootsArea.Max.Y, split, c.Height())
 
-	c.SetRGB(0, 0, 0)
+	c.SetColor(color.Black)
 	must(c.LoadFontFace("./RobotoMono-Regular.ttf", 26))
 
 	c.SetLineCapButt()
@@ -160,10 +162,12 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 		const baseHeight = 36
 
 		r := &roots[i]
-		if i < rootsVisited {
-			c.SetRGB(0, 0, 0)
+		if ctx.Root >= 0 && i == ctx.Root {
+			c.SetColor(highlight)
+		} else if i < rootsVisited {
+			c.SetColor(color.Black)
 		} else {
-			c.SetRGB(fade, fade, fade)
+			c.SetColor(faded)
 		}
 
 		inc := rootsArea.Dy() / (len(roots) + 1)
@@ -176,7 +180,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 		rootAnchors = append(rootAnchors, anchor)
 	}
 
-	c.SetRGB(0, 0, 0)
+	c.SetColor(color.Black)
 	must(c.LoadFontFace("./RobotoMono-Regular.ttf", 28))
 
 	const ptrWordSize = 64
@@ -191,7 +195,8 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 
 	// Draw boxes.
 	objBoxes := make(map[Pointer]image.Rectangle)
-	for i, b := range h.Blocks {
+	for i := range h.Blocks {
+		b := &h.Blocks[i]
 		col := i % blockColumns
 		row := (i / blockColumns) + 1
 		cx, cy := float64(heapArea.Min.X)+blockColInc/2+float64(col)*blockColInc, float64(heapArea.Min.Y)+float64(row)*blockRowInc
@@ -201,7 +206,11 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 		bx := cx - blockWidth/2
 		by := cy - blockHeight/2
 
-		c.SetRGB(0, 0, 0)
+		if ctx.Block == b {
+			c.SetColor(highlight)
+		} else {
+			c.SetColor(color.Black)
+		}
 		c.SetLineWidth(2.0)
 		c.SetDash(4.0)
 		c.DrawRectangle(bx, by, blockWidth, blockHeight)
@@ -221,9 +230,9 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 			baseObjX += float64(width + objPadding)
 
 			if marked.Has(p) {
-				c.SetRGB(0, 0, 0)
+				c.SetColor(color.Black)
 			} else {
-				c.SetRGB(fade, fade, fade)
+				c.SetColor(faded)
 			}
 			if obj.Type == "<free>" {
 				c.SetDash(2.0)
@@ -245,12 +254,12 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 
 				if marked.Has(p) {
 					if ctx.Object == p && ctx.Field >= 0 && ctx.Field == k {
-						c.SetRGB(1, 0, 0)
+						c.SetColor(highlight)
 					} else {
-						c.SetRGB(0, 0, 0)
+						c.SetColor(color.Black)
 					}
 				} else {
-					c.SetRGB(fade, fade, fade)
+					c.SetColor(faded)
 				}
 
 				c.DrawRectangle(ox+float64(fi*ptrWordSize), oy, ptrWordSize, ptrWordSize)
@@ -265,7 +274,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 	}
 
 	// Draw arrows.
-	c.SetRGB(0, 0, 0)
+	c.SetColor(color.Black)
 	for i := range roots {
 		r := &roots[i]
 		dstR, ok := objBoxes[r.Pointer]
@@ -273,11 +282,11 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 			continue
 		}
 		if ctx.Root >= 0 && i == ctx.Root {
-			c.SetRGB(1, 0, 0)
+			c.SetColor(highlight)
 		} else if i < rootsVisited {
-			c.SetRGB(0, 0, 0)
+			c.SetColor(color.Black)
 		} else {
-			c.SetRGB(fade, fade, fade)
+			c.SetColor(faded)
 		}
 		src := rootAnchors[i]
 		dst := minDistPtOnRect(src, dstR, ptrWordSize/3)
@@ -297,11 +306,11 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 			}
 
 			if ctx.Object == p && ctx.Field >= 0 && ctx.Field == i {
-				c.SetRGB(1, 0, 0)
+				c.SetColor(highlight)
 			} else if i < fieldsVisited[p] {
-				c.SetRGB(0, 0, 0)
+				c.SetColor(color.Black)
 			} else {
-				c.SetRGB(fade, fade, fade)
+				c.SetColor(faded)
 			}
 
 			src := image.Pt(src.Min.X+fi*ptrWordSize+ptrWordSize/2, src.Min.Y+ptrWordSize/2)
