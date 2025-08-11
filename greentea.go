@@ -144,6 +144,9 @@ func (g *GreenTea) evolve(yield func(gcState) bool) {
 				}
 			}
 			g.scanned.Add(p)
+
+			g.ctx.Object = Nil
+			g.ctx.Field = -1
 		}
 	}
 

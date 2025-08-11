@@ -7,8 +7,11 @@ import (
 	"iter"
 	"log"
 	"math"
+	"os"
 
 	"github.com/fogleman/gg"
+	"github.com/golang/freetype/truetype"
+	"golang.org/x/image/font"
 )
 
 func main() {
@@ -91,7 +94,7 @@ func Draw(s gcState) *gg.Context {
 func (m *MarkSweep) DrawExtra(c *gg.Context, area image.Rectangle) {
 	const padding = 32
 	c.SetColor(color.Black)
-	must(c.LoadFontFace("./RobotoMono-Regular.ttf", 36))
+	must(setFontFace(c, "./RobotoMono-Regular.ttf", 36))
 
 	c.DrawStringAnchored("Stack", float64(area.Min.X)+padding, float64(area.Max.Y)-padding, 0, 0)
 	ly := float64(area.Max.Y) - padding - 48
@@ -99,7 +102,7 @@ func (m *MarkSweep) DrawExtra(c *gg.Context, area image.Rectangle) {
 	c.DrawLine(float64(area.Min.X)+padding, ly, float64(area.Max.X)-padding, ly)
 	c.Stroke()
 
-	must(c.LoadFontFace("./RobotoMono-Regular.ttf", 32))
+	must(setFontFace(c, "./RobotoMono-Regular.ttf", 32))
 	ly -= 16
 	for _, p := range m.stack {
 		c.DrawStringAnchored(fmt.Sprintf("0x%x", m.heap.AddressOf(p)), float64(area.Min.X)+padding, ly, 0, 0)
@@ -110,7 +113,7 @@ func (m *MarkSweep) DrawExtra(c *gg.Context, area image.Rectangle) {
 func (g *GreenTea) DrawExtra(c *gg.Context, area image.Rectangle) {
 	const padding = 32
 	c.SetColor(color.Black)
-	must(c.LoadFontFace("./RobotoMono-Regular.ttf", 36))
+	must(setFontFace(c, "./RobotoMono-Regular.ttf", 36))
 
 	c.DrawStringAnchored("Queue", float64(area.Min.X)+padding, float64(area.Max.Y)-padding, 0, 0)
 	ly := float64(area.Max.Y) - padding - 48
@@ -118,7 +121,7 @@ func (g *GreenTea) DrawExtra(c *gg.Context, area image.Rectangle) {
 	c.DrawLine(float64(area.Min.X)+padding, ly, float64(area.Max.X)-padding, ly)
 	c.Stroke()
 
-	must(c.LoadFontFace("./RobotoMono-Regular.ttf", 32))
+	must(setFontFace(c, "./RobotoMono-Regular.ttf", 32))
 	ly -= 16
 	for b := range g.queue.All() {
 		c.DrawStringAnchored(fmt.Sprintf("0x%x", b.Address), float64(area.Min.X)+padding, ly, 0, 0)
@@ -143,7 +146,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 	restArea := image.Rect(0, rootsArea.Max.Y, split, c.Height())
 
 	c.SetColor(color.Black)
-	must(c.LoadFontFace("./RobotoMono-Regular.ttf", 26))
+	must(setFontFace(c, "./RobotoMono-Regular.ttf", 26))
 
 	c.SetLineCapButt()
 	c.SetLineJoin(gg.LineJoinRound)
@@ -154,7 +157,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 
 	c.DrawStringWrapped(info, float64(infoArea.Min.X+32), float64(infoArea.Min.Y+32), 0, 0, float64(infoArea.Dx()-64), 1.75, gg.AlignLeft)
 
-	must(c.LoadFontFace("./RobotoMono-Regular.ttf", 36))
+	must(setFontFace(c, "./RobotoMono-Regular.ttf", 36))
 
 	var rootAnchors []image.Point
 	for i := range roots {
@@ -181,7 +184,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 	}
 
 	c.SetColor(color.Black)
-	must(c.LoadFontFace("./RobotoMono-Regular.ttf", 28))
+	must(setFontFace(c, "./RobotoMono-Regular.ttf", 28))
 
 	const ptrWordSize = 64
 
@@ -201,7 +204,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 		row := (i / blockColumns) + 1
 		cx, cy := float64(heapArea.Min.X)+blockColInc/2+float64(col)*blockColInc, float64(heapArea.Min.Y)+float64(row)*blockRowInc
 
-		must(c.LoadFontFace("./RobotoMono-Regular.ttf", 28))
+		must(setFontFace(c, "./RobotoMono-Regular.ttf", 28))
 
 		bx := cx - blockWidth/2
 		by := cy - blockHeight/2
@@ -217,7 +220,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 		c.Stroke()
 		c.DrawStringAnchored(fmt.Sprintf("0x%x", b.Address), bx, by-12, 0, 0)
 
-		must(c.LoadFontFace("./RobotoMono-Regular.ttf", 24))
+		must(setFontFace(c, "./RobotoMono-Regular.ttf", 24))
 
 		const objPadding = 16
 		baseObjX := bx + objPadding
@@ -238,9 +241,9 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 				c.SetDash(2.0)
 			} else {
 				c.SetDash()
-				must(c.LoadFontFace("./RobotoMono-Regular.ttf", 24))
+				must(setFontFace(c, "./RobotoMono-Regular.ttf", 24))
 				c.DrawStringAnchored(obj.Type, ox, oy-8, 0, 0)
-				must(c.LoadFontFace("./RobotoMono-Regular.ttf", 18))
+				must(setFontFace(c, "./RobotoMono-Regular.ttf", 18))
 				c.DrawStringAnchored(fmt.Sprintf("+0x%x", uint64(j*b.ElemSize)), ox+float64(width), oy-8, 1, 0)
 			}
 
@@ -392,4 +395,38 @@ func must(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+type fontFaceKey struct {
+	path string
+	size float64
+}
+
+var fontCache = make(map[string]*truetype.Font)
+var faceCache = make(map[fontFaceKey]font.Face)
+
+func setFontFace(c *gg.Context, path string, size float64) error {
+	if f, ok := faceCache[fontFaceKey{path, size}]; ok {
+		c.SetFontFace(f)
+		return nil
+	}
+	if ft, ok := fontCache[path]; ok {
+		f := truetype.NewFace(ft, &truetype.Options{Size: size})
+		faceCache[fontFaceKey{path, size}] = f
+		c.SetFontFace(f)
+		return nil
+	}
+	fontBytes, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	ft, err := truetype.Parse(fontBytes)
+	if err != nil {
+		return err
+	}
+	fontCache[path] = ft
+	f := truetype.NewFace(ft, &truetype.Options{Size: size})
+	faceCache[fontFaceKey{path, size}] = f
+	c.SetFontFace(f)
+	return nil
 }
