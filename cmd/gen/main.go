@@ -102,10 +102,11 @@ func (m *MarkSweep) DrawExtra(c *gg.Context, area image.Rectangle) {
 	c.DrawLine(float64(area.Min.X)+padding, ly, float64(area.Max.X)-padding, ly)
 	c.Stroke()
 
-	must(setFontFace(c, "./RobotoMono-Regular.ttf", 32))
+	must(setFontFace(c, "./RobotoMono-Regular.ttf", 36))
 	ly -= 16
 	for _, p := range m.stack {
-		c.DrawStringAnchored(fmt.Sprintf("0x%x", m.heap.AddressOf(p)), float64(area.Min.X)+padding, ly, 0, 0)
+		b := m.heap.BlockOf(p)
+		c.DrawStringAnchored(fmt.Sprintf("0x%x+0x%x", b.Address, m.heap.AddressOf(p)-b.Address), float64(area.Min.X)+padding, ly, 0, 0)
 		ly -= 40
 	}
 }
@@ -121,7 +122,7 @@ func (g *GreenTea) DrawExtra(c *gg.Context, area image.Rectangle) {
 	c.DrawLine(float64(area.Min.X)+padding, ly, float64(area.Max.X)-padding, ly)
 	c.Stroke()
 
-	must(setFontFace(c, "./RobotoMono-Regular.ttf", 32))
+	must(setFontFace(c, "./RobotoMono-Regular.ttf", 36))
 	ly -= 16
 	for b := range g.queue.All() {
 		c.DrawStringAnchored(fmt.Sprintf("0x%x", b.Address), float64(area.Min.X)+padding, ly, 0, 0)
