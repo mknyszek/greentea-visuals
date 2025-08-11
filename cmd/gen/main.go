@@ -155,7 +155,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 	c.DrawRectangle(float64(infoArea.Min.X+16), float64(infoArea.Min.Y+16), float64(infoArea.Dx()-32), float64(infoArea.Dy()-32))
 	c.Stroke()
 
-	c.DrawStringWrapped(info, float64(infoArea.Min.X+32), float64(infoArea.Min.Y+32), 0, 0, float64(infoArea.Dx()-64), 1.75, gg.AlignLeft)
+	c.DrawStringWrapped(info, float64(infoArea.Min.X+32), float64(infoArea.Min.Y+32), 0, 0, float64(infoArea.Dx()-64), 1.25, gg.AlignLeft)
 
 	must(setFontFace(c, "./RobotoMono-Regular.ttf", 36))
 
