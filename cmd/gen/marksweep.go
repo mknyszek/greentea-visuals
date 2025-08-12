@@ -95,11 +95,6 @@ func (m *MarkSweep) evolve(yield func(gcState) bool) {
 		p := m.stack[len(m.stack)-1]
 		m.stack = m.stack[:len(m.stack)-1]
 
-		// Yield new active block.
-		if !yield(m) {
-			return
-		}
-
 		// Iterate over the object's fields and mark new objects,
 		// adding their blocks to the queue if necessary.
 		m.ctx.Object = p

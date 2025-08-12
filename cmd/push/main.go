@@ -9,6 +9,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
+	"time"
 
 	"google.golang.org/api/drive/v2"
 	"google.golang.org/api/option"
@@ -22,9 +24,22 @@ var (
 func main() {
 	flag.Parse()
 
-	for i := range flag.NArg() {
-		if err := createImageSlide(*presentationID, flag.Arg(i)); err != nil {
-			log.Fatal(err)
+	entries, err := os.ReadDir("./img")
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, e := range entries {
+		imageURL := "https://raw.githubusercontent.com/mknyszek/greentea-visuals/refs/heads/main/img/" + e.Name()
+		log.Print("pushing ", imageURL)
+		for try := 0; try < 10; try++ {
+			err := createImageSlide(*presentationID, imageURL)
+			if err == nil {
+				break
+			}
+			log.Print("error:", err)
+			next := min(time.Second*(time.Duration(1)<<try), 60*time.Second)
+			log.Print("retrying in ", next)
+			time.Sleep(next)
 		}
 	}
 }

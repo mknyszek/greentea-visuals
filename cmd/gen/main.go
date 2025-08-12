@@ -12,6 +12,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"strings"
 
 	"github.com/fogleman/gg"
 	"github.com/golang/freetype/truetype"
@@ -100,19 +101,13 @@ func (m *MarkSweep) DrawExtra(c *gg.Context, area image.Rectangle) {
 	c.SetColor(color.Black)
 	must(setFontFace(c, "./RobotoMono-Regular.ttf", 36))
 
-	c.DrawStringAnchored("Stack", float64(area.Min.X)+padding, float64(area.Max.Y)-padding, 0, 0)
-	ly := float64(area.Max.Y) - padding - 48
-	c.SetLineWidth(5.0)
-	c.DrawLine(float64(area.Min.X)+padding, ly, float64(area.Max.X)-padding, ly)
-	c.Stroke()
-
-	must(setFontFace(c, "./RobotoMono-Regular.ttf", 36))
-	ly -= 16
+	var sb strings.Builder
+	sb.WriteString("Stack:")
 	for _, p := range m.stack {
 		b := m.heap.BlockOf(p)
-		c.DrawStringAnchored(fmt.Sprintf("0x%x+0x%x", b.Address, m.heap.AddressOf(p)-b.Address), float64(area.Min.X)+padding, ly, 0, 0)
-		ly -= 40
+		fmt.Fprintf(&sb, " 0x%x+0x%x", b.Address, m.heap.AddressOf(p)-b.Address)
 	}
+	c.DrawStringAnchored(sb.String(), float64(area.Min.X)+padding, float64(area.Max.Y)-padding, 0, 0)
 }
 
 func (g *GreenTea) DrawExtra(c *gg.Context, area image.Rectangle) {
@@ -120,18 +115,12 @@ func (g *GreenTea) DrawExtra(c *gg.Context, area image.Rectangle) {
 	c.SetColor(color.Black)
 	must(setFontFace(c, "./RobotoMono-Regular.ttf", 36))
 
-	c.DrawStringAnchored("Queue", float64(area.Min.X)+padding, float64(area.Max.Y)-padding, 0, 0)
-	ly := float64(area.Max.Y) - padding - 48
-	c.SetLineWidth(5.0)
-	c.DrawLine(float64(area.Min.X)+padding, ly, float64(area.Max.X)-padding, ly)
-	c.Stroke()
-
-	must(setFontFace(c, "./RobotoMono-Regular.ttf", 36))
-	ly -= 16
+	var sb strings.Builder
+	sb.WriteString("Queue:")
 	for b := range g.queue.All() {
-		c.DrawStringAnchored(fmt.Sprintf("0x%x", b.Address), float64(area.Min.X)+padding, ly, 0, 0)
-		ly -= 40
+		fmt.Fprintf(&sb, " 0x%x", b.Address)
 	}
+	c.DrawStringAnchored(sb.String(), float64(area.Min.X)+padding, float64(area.Max.Y)-padding, 0, 0)
 }
 
 func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
@@ -144,11 +133,12 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 	fieldsVisited := s.FieldsVisited()
 	ctx := s.Context()
 
+	height := c.Height() * 85 / 100 // Leave bottom 15% empty for closed captioning.
 	split := c.Width() / 4
-	infoArea := image.Rect(0, 0, split, 192)
-	rootsArea := image.Rect(0, 192, split, 192+c.Height()/4)
-	heapArea := image.Rect(split, 0, c.Width(), c.Height())
-	restArea := image.Rect(0, rootsArea.Max.Y, split, c.Height())
+	infoArea := image.Rect(0, 64, split, 192+64)
+	rootsArea := image.Rect(0, 192+64, split, 192+64+height/2)
+	heapArea := image.Rect(split, 0, c.Width(), height)
+	restArea := image.Rect(0, rootsArea.Max.Y, split, height)
 
 	c.SetColor(color.Black)
 	must(setFontFace(c, "./RobotoMono-Regular.ttf", 26))
