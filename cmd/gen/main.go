@@ -290,23 +290,23 @@ func drawObjGraph(c *gg.Context, info string, s gcState) {
 		}
 
 		// Draw metadata bitmaps.
-		c.SetLineWidth(2.0)
-		c.SetDash()
-
-		const bitSize = 12
-		mx, my := bx+blockWidth-16-float64(len(b.Objects))*bitSize, by+16
-		for _, p := range b.Objects {
-			if s.Marked(p) {
-				c.SetColor(color.Black)
-				c.DrawRectangle(mx, my, bitSize, bitSize)
-				c.Fill()
-			}
-			c.SetColor(faded)
-			c.DrawRectangle(mx, my, bitSize, bitSize)
-			c.Stroke()
-			mx += bitSize
-		}
 		if hasScanned {
+			c.SetLineWidth(2.0)
+			c.SetDash()
+
+			const bitSize = 12
+			mx, my := bx+blockWidth-16-float64(len(b.Objects))*bitSize, by+16
+			for _, p := range b.Objects {
+				if s.Marked(p) {
+					c.SetColor(color.Black)
+					c.DrawRectangle(mx, my, bitSize, bitSize)
+					c.Fill()
+				}
+				c.SetColor(faded)
+				c.DrawRectangle(mx, my, bitSize, bitSize)
+				c.Stroke()
+				mx += bitSize
+			}
 			sx, sy := bx+blockWidth-16-float64(len(b.Objects))*bitSize, by+32
 			for _, p := range b.Objects {
 				if ss.Scanned(p) {
