@@ -4,7 +4,10 @@
 
 package main
 
-import "iter"
+import (
+	"iter"
+	"slices"
+)
 
 type MarkSweep struct {
 	// Immutable.
@@ -28,7 +31,7 @@ func NewMarkSweep(roots []Root, heap *Heap) *MarkSweep {
 	}
 }
 
-func (m *MarkSweep) reset() {
+func (m *MarkSweep) Reset() {
 	*m = *NewMarkSweep(m.roots, m.heap)
 }
 
@@ -48,17 +51,23 @@ func (m *MarkSweep) FieldsVisited(p Pointer) int {
 	return m.fieldsVisited[p]
 }
 
+func (m *MarkSweep) Queued(p Pointer) bool {
+	return slices.Contains(m.stack, p)
+}
+
+func (m *MarkSweep) BlockQueued(_ *Block) bool {
+	return false
+}
+
 func (m *MarkSweep) Context() Context {
 	return m.ctx
 }
 
-func (m *MarkSweep) Evolve() iter.Seq[gcState] {
-	return m.evolve
+func (m *MarkSweep) Mark() iter.Seq[gcState] {
+	return m.mark
 }
 
-func (m *MarkSweep) evolve(yield func(gcState) bool) {
-	defer m.reset()
-
+func (m *MarkSweep) mark(yield func(gcState) bool) {
 	// First, the initial state.
 	if !yield(m) {
 		return

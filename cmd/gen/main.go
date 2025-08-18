@@ -12,7 +12,6 @@ import (
 	"log"
 	"math"
 	"os"
-	"strings"
 
 	"github.com/fogleman/gg"
 	"github.com/golang/freetype/truetype"
@@ -20,6 +19,34 @@ import (
 )
 
 func main() {
+	ms := NewMarkSweep(makeHeap())
+	i := 0
+	for s := range ms.Mark() {
+		fname := fmt.Sprintf("./img/marksweep-%03d.png", i)
+		fmt.Println("generating", fname)
+		must(Draw(s).SavePNG(fname))
+		i++
+	}
+	Sweep(ms)
+	fname := fmt.Sprintf("./img/marksweep-%03d.png", i)
+	fmt.Println("generating", fname)
+	must(Draw(ms).SavePNG(fname))
+
+	gt := NewGreenTea(makeHeap())
+	i = 0
+	for s := range gt.Mark() {
+		fname := fmt.Sprintf("./img/greentea-%03d.png", i)
+		fmt.Println("generating", fname)
+		must(Draw(s).SavePNG(fname))
+		i++
+	}
+	Sweep(gt)
+	fname = fmt.Sprintf("./img/greentea-%03d.png", i)
+	fmt.Println("generating", fname)
+	must(Draw(gt).SavePNG(fname))
+}
+
+func makeHeap() ([]Root, *Heap) {
 	roots := []Root{
 		{"var a *T", 2},
 		{"var b *T", 6},
@@ -48,34 +75,29 @@ func main() {
 			Blk(0xd000, 32, Free, 10, Free, 11),
 		},
 	}
-
-	ms := NewMarkSweep(roots, heap)
-	i := 0
-	for s := range ms.Evolve() {
-		fname := fmt.Sprintf("./img/marksweep-%03d.png", i)
-		fmt.Println("generating", fname)
-		must(Draw(s).SavePNG(fname))
-		i++
-	}
-
-	gt := NewGreenTea(roots, heap)
-	i = 0
-	for s := range gt.Evolve() {
-		fname := fmt.Sprintf("./img/greentea-%03d.png", i)
-		fmt.Println("generating", fname)
-		must(Draw(s).SavePNG(fname))
-		i++
-	}
+	return roots, heap
 }
 
 type gcState interface {
-	Evolve() iter.Seq[gcState]
 	Heap() *Heap
 	Roots() ([]Root, int)
 	Marked(Pointer) bool
 	FieldsVisited(Pointer) int
+	Queued(Pointer) bool
+	BlockQueued(*Block) bool
 	Context() Context
-	DrawExtra(*gg.Context, image.Rectangle)
+}
+
+func Sweep(s gcState) {
+	for i := range s.Heap().Blocks {
+		b := &s.Heap().Blocks[i]
+		for j, p := range b.Objects {
+			if s.Marked(p) {
+				continue
+			}
+			b.Objects[j] = Free
+		}
+	}
 }
 
 func Draw(s gcState) *gg.Context {
@@ -91,41 +113,14 @@ func Draw(s gcState) *gg.Context {
 		"\u2800   value    int\n" +
 		"}"
 
-	area := drawObjGraph(c, info, s)
-	s.DrawExtra(c, area)
+	drawObjGraph(c, info, s)
 	return c
 }
 
-func (m *MarkSweep) DrawExtra(c *gg.Context, area image.Rectangle) {
-	const padding = 32
-	c.SetColor(color.Black)
-	must(setFontFace(c, "./RobotoMono-Regular.ttf", 36))
-
-	var sb strings.Builder
-	sb.WriteString("Stack:")
-	for _, p := range m.stack {
-		b := m.heap.BlockOf(p)
-		fmt.Fprintf(&sb, " 0x%x+0x%x", b.Address, m.heap.AddressOf(p)-b.Address)
-	}
-	c.DrawStringAnchored(sb.String(), float64(area.Min.X)+padding, float64(area.Max.Y)-padding, 0, 0)
-}
-
-func (g *GreenTea) DrawExtra(c *gg.Context, area image.Rectangle) {
-	const padding = 32
-	c.SetColor(color.Black)
-	must(setFontFace(c, "./RobotoMono-Regular.ttf", 36))
-
-	var sb strings.Builder
-	sb.WriteString("Queue:")
-	for b := range g.queue.All() {
-		fmt.Fprintf(&sb, " 0x%x", b.Address)
-	}
-	c.DrawStringAnchored(sb.String(), float64(area.Min.X)+padding, float64(area.Max.Y)-padding, 0, 0)
-}
-
-func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
+func drawObjGraph(c *gg.Context, info string, s gcState) {
 	faded := color.Gray{Y: 153}
-	highlight := color.RGBA{R: 0xff, G: 0, B: 0, A: 255}
+	selected := color.RGBA{R: 0xff, G: 0, B: 0, A: 255}
+	queued := color.RGBA{R: 0x00, G: 0xad, B: 0xd8, A: 255}
 
 	roots, rootsVisited := s.Roots()
 	h := s.Heap()
@@ -136,7 +131,6 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 	infoArea := image.Rect(0, 64, split, 192+64)
 	rootsArea := image.Rect(0, 192+64, split, 192+64+height/2)
 	heapArea := image.Rect(split, 0, c.Width(), height)
-	restArea := image.Rect(0, rootsArea.Max.Y, split, height)
 
 	c.SetColor(color.Black)
 	must(setFontFace(c, "./RobotoMono-Regular.ttf", 26))
@@ -159,11 +153,11 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 
 		r := &roots[i]
 		if ctx.Root >= 0 && i == ctx.Root {
-			c.SetColor(highlight)
+			c.SetColor(selected)
 		} else if i < rootsVisited {
 			c.SetColor(color.Black)
 		} else {
-			c.SetColor(faded)
+			c.SetColor(queued)
 		}
 
 		inc := rootsArea.Dy() / (len(roots) + 1)
@@ -203,23 +197,27 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 		by := cy - blockHeight/2
 
 		if ctx.Block == b {
-			c.SetColor(highlight)
+			c.SetColor(selected)
+			c.SetLineWidth(4.0)
 			c.SetDash()
-			c.SetLineWidth(3.0)
+		} else if s.BlockQueued(b) {
+			c.SetColor(queued)
+			c.SetLineWidth(4.0)
+			c.SetDash()
 		} else {
 			c.SetColor(color.Black)
 			c.SetLineWidth(2.0)
+			c.SetDash(4.0)
 		}
-		c.SetDash(4.0)
 		c.DrawRoundedRectangle(bx, by, blockWidth, blockHeight, 12.0)
 		c.Stroke()
-		c.DrawStringAnchored(fmt.Sprintf("0x%x", b.Address), bx, by-12, 0, 0)
+		//c.DrawStringAnchored(fmt.Sprintf("0x%x", b.Address), bx, by-12, 0, 0)
 
 		must(setFontFace(c, "./RobotoMono-Regular.ttf", 24))
 
 		const objPadding = 16
 		baseObjX := bx + objPadding
-		for j, p := range b.Objects {
+		for _, p := range b.Objects {
 			obj := &h.Objects[p]
 
 			ox := baseObjX
@@ -245,7 +243,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 
 				if s.Marked(p) {
 					if ctx.Object == p && ctx.Field >= 0 && ctx.Field == k {
-						c.SetColor(highlight)
+						c.SetColor(selected)
 					} else {
 						c.SetColor(color.Black)
 					}
@@ -261,7 +259,9 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 
 			// Draw object boundary.
 			if ctx.Object == p {
-				c.SetColor(highlight)
+				c.SetColor(selected)
+			} else if s.Queued(p) {
+				c.SetColor(queued)
 			} else if s.Marked(p) {
 				c.SetColor(color.Black)
 			} else {
@@ -273,8 +273,10 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 				c.SetDash()
 				must(setFontFace(c, "./RobotoMono-Regular.ttf", 24))
 				c.DrawStringAnchored(obj.Type, ox, oy-8, 0, 0)
-				must(setFontFace(c, "./RobotoMono-Regular.ttf", 18))
-				c.DrawStringAnchored(fmt.Sprintf("+0x%x", uint64(j*b.ElemSize)), ox+float64(width), oy-8, 1, 0)
+				/*
+					must(setFontFace(c, "./RobotoMono-Regular.ttf", 18))
+					c.DrawStringAnchored(fmt.Sprintf("+0x%x", uint64(j*b.ElemSize)), ox+float64(width), oy-8, 1, 0)
+				*/
 			}
 
 			c.SetLineWidth(4.0)
@@ -292,7 +294,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 			continue
 		}
 		if ctx.Root >= 0 && i == ctx.Root {
-			c.SetColor(highlight)
+			c.SetColor(selected)
 		} else if i < rootsVisited {
 			c.SetColor(color.Black)
 		} else {
@@ -316,7 +318,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 			}
 
 			if ctx.Object == p && ctx.Field >= 0 && ctx.Field == i {
-				c.SetColor(highlight)
+				c.SetColor(selected)
 			} else if i < s.FieldsVisited(p) {
 				c.SetColor(color.Black)
 			} else {
@@ -329,7 +331,6 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 			drawArrow(c, float64(src.X), float64(src.Y), float64(dst.X), float64(dst.Y), 3.0)
 		}
 	}
-	return restArea
 }
 
 func drawArrow(c *gg.Context, srcX, srcY, dstX, dstY, width float64) {

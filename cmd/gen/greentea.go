@@ -30,7 +30,7 @@ func NewGreenTea(roots []Root, heap *Heap) *GreenTea {
 	}
 }
 
-func (g *GreenTea) reset() {
+func (g *GreenTea) Reset() {
 	*g = *NewGreenTea(g.roots, g.heap)
 }
 
@@ -50,17 +50,24 @@ func (g *GreenTea) FieldsVisited(p Pointer) int {
 	return g.fieldsVisited[p]
 }
 
+func (g *GreenTea) Queued(p Pointer) bool {
+	b := g.heap.BlockOf(p)
+	return b != nil && g.queue.Has(b) && g.marked.Has(p) && !g.scanned.Has(p)
+}
+
+func (g *GreenTea) BlockQueued(b *Block) bool {
+	return g.queue.Has(b)
+}
+
 func (g *GreenTea) Context() Context {
 	return g.ctx
 }
 
-func (g *GreenTea) Evolve() iter.Seq[gcState] {
-	return g.evolve
+func (g *GreenTea) Mark() iter.Seq[gcState] {
+	return g.mark
 }
 
-func (g *GreenTea) evolve(yield func(gcState) bool) {
-	defer g.reset()
-
+func (g *GreenTea) mark(yield func(gcState) bool) {
 	// First, the initial state.
 	if !yield(g) {
 		return
