@@ -48,8 +48,8 @@ func main() {
 
 func makeHeap() ([]Root, *Heap) {
 	roots := []Root{
-		{"var a *T", 2},
-		{"var b *T", 6},
+		{"var x *T", 2},
+		{"var y *T", 6},
 	}
 	heap := &Heap{
 		Objects: []Object{
@@ -182,7 +182,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) {
 	const blockColumns = 1
 	const blockHeight = 128
 
-	blockWidth := float64(heapArea.Dx()/blockColumns) * 0.8
+	blockWidth := float64(heapArea.Dx()/blockColumns) * 0.85
 	blockRows := (len(h.Blocks) + blockColumns - 1) / blockColumns
 	blockColInc := float64(heapArea.Dx() / blockColumns)
 	blockRowInc := float64(heapArea.Dy() / (blockRows + 1))
@@ -215,7 +215,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) {
 		}
 		c.DrawRoundedRectangle(bx, by, blockWidth, blockHeight, 12.0)
 		c.Stroke()
-		//c.DrawStringAnchored(fmt.Sprintf("0x%x", b.Address), bx, by-12, 0, 0)
+		c.DrawStringAnchored(fmt.Sprintf("%X", b.Address>>12), bx, by-12, 0, 0)
 
 		must(setFontFace(c, "./RobotoMono-Regular.ttf", 24))
 
@@ -277,10 +277,6 @@ func drawObjGraph(c *gg.Context, info string, s gcState) {
 				c.SetDash()
 				must(setFontFace(c, "./RobotoMono-Regular.ttf", 24))
 				c.DrawStringAnchored(obj.Type, ox, oy-8, 0, 0)
-				/*
-					must(setFontFace(c, "./RobotoMono-Regular.ttf", 18))
-					c.DrawStringAnchored(fmt.Sprintf("+0x%x", uint64(j*b.ElemSize)), ox+float64(width), oy-8, 1, 0)
-				*/
 			}
 
 			c.SetLineWidth(4.0)
