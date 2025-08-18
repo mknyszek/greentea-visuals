@@ -96,6 +96,10 @@ func Sweep(s gcState) {
 				continue
 			}
 			b.Objects[j] = Free
+			obj := &s.Heap().Objects[p]
+			for k := range obj.Fields {
+				obj.Fields[k].Pointer = Nil
+			}
 		}
 	}
 }
@@ -287,6 +291,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) {
 
 	// Draw arrows.
 	c.SetColor(color.Black)
+	c.SetDash()
 	for i := range roots {
 		r := &roots[i]
 		dstR, ok := objBoxes[r.Pointer]
