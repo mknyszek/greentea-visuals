@@ -88,6 +88,10 @@ type gcState interface {
 	Context() Context
 }
 
+type gcStateScanned interface {
+	Scanned(Pointer) bool
+}
+
 func Sweep(s gcState) {
 	for i := range s.Heap().Blocks {
 		b := &s.Heap().Blocks[i]
@@ -188,6 +192,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) {
 	blockRowInc := float64(heapArea.Dy() / (blockRows + 1))
 
 	// Draw boxes.
+	ss, hasScanned := s.(gcStateScanned)
 	objBoxes := make(map[Pointer]image.Rectangle)
 	for i := range h.Blocks {
 		b := &h.Blocks[i]
@@ -282,6 +287,38 @@ func drawObjGraph(c *gg.Context, info string, s gcState) {
 			c.SetLineWidth(4.0)
 			c.DrawRectangle(ox, oy, float64(width), ptrWordSize)
 			c.Stroke()
+		}
+
+		// Draw metadata bitmaps.
+		c.SetLineWidth(2.0)
+		c.SetDash()
+
+		const bitSize = 12
+		mx, my := bx+blockWidth-16-float64(len(b.Objects))*bitSize, by+16
+		for _, p := range b.Objects {
+			if s.Marked(p) {
+				c.SetColor(color.Black)
+				c.DrawRectangle(mx, my, bitSize, bitSize)
+				c.Fill()
+			}
+			c.SetColor(faded)
+			c.DrawRectangle(mx, my, bitSize, bitSize)
+			c.Stroke()
+			mx += bitSize
+		}
+		if hasScanned {
+			sx, sy := bx+blockWidth-16-float64(len(b.Objects))*bitSize, by+32
+			for _, p := range b.Objects {
+				if ss.Scanned(p) {
+					c.SetColor(color.Black)
+					c.DrawRectangle(sx, sy, bitSize, bitSize)
+					c.Fill()
+				}
+				c.SetColor(faded)
+				c.DrawRectangle(sx, sy, bitSize, bitSize)
+				c.Stroke()
+				sx += bitSize
+			}
 		}
 	}
 

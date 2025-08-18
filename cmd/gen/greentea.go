@@ -55,6 +55,10 @@ func (g *GreenTea) Queued(p Pointer) bool {
 	return b != nil && (g.queue.Has(b) || g.ctx.Block == b) && g.marked.Has(p) && !g.scanned.Has(p)
 }
 
+func (g *GreenTea) Scanned(p Pointer) bool {
+	return g.scanned.Has(p)
+}
+
 func (g *GreenTea) BlockQueued(b *Block) bool {
 	return g.queue.Has(b)
 }
