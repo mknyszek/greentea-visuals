@@ -72,8 +72,8 @@ type gcState interface {
 	Evolve() iter.Seq[gcState]
 	Heap() *Heap
 	Roots() ([]Root, int)
-	Marked() *Set[Pointer]
-	FieldsVisited() map[Pointer]int
+	Marked(Pointer) bool
+	FieldsVisited(Pointer) int
 	Context() Context
 	DrawExtra(*gg.Context, image.Rectangle)
 }
@@ -129,8 +129,6 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 
 	roots, rootsVisited := s.Roots()
 	h := s.Heap()
-	marked := s.Marked()
-	fieldsVisited := s.FieldsVisited()
 	ctx := s.Context()
 
 	height := c.Height() * 85 / 100 // Leave bottom 15% empty for closed captioning.
@@ -234,7 +232,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 			for k, f := range obj.Fields {
 				fi := f.Offset / PointerSize
 
-				if marked.Has(p) {
+				if s.Marked(p) {
 					c.SetColor(color.Black)
 				} else {
 					c.SetColor(faded)
@@ -245,7 +243,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 				c.DrawRectangle(ox+float64(fi*ptrWordSize), oy, ptrWordSize, ptrWordSize)
 				c.Stroke()
 
-				if marked.Has(p) {
+				if s.Marked(p) {
 					if ctx.Object == p && ctx.Field >= 0 && ctx.Field == k {
 						c.SetColor(highlight)
 					} else {
@@ -264,7 +262,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 			// Draw object boundary.
 			if ctx.Object == p {
 				c.SetColor(highlight)
-			} else if marked.Has(p) {
+			} else if s.Marked(p) {
 				c.SetColor(color.Black)
 			} else {
 				c.SetColor(faded)
@@ -319,7 +317,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) image.Rectangle {
 
 			if ctx.Object == p && ctx.Field >= 0 && ctx.Field == i {
 				c.SetColor(highlight)
-			} else if i < fieldsVisited[p] {
+			} else if i < s.FieldsVisited(p) {
 				c.SetColor(color.Black)
 			} else {
 				c.SetColor(faded)

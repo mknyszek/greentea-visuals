@@ -42,12 +42,12 @@ func (g *GreenTea) Roots() ([]Root, int) {
 	return g.roots, g.rootsVisited
 }
 
-func (g *GreenTea) Marked() *Set[Pointer] {
-	return &g.marked
+func (g *GreenTea) Marked(p Pointer) bool {
+	return g.marked.Has(p)
 }
 
-func (g *GreenTea) FieldsVisited() map[Pointer]int {
-	return g.fieldsVisited
+func (g *GreenTea) FieldsVisited(p Pointer) int {
+	return g.fieldsVisited[p]
 }
 
 func (g *GreenTea) Context() Context {

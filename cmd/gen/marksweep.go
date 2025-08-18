@@ -40,12 +40,12 @@ func (m *MarkSweep) Roots() ([]Root, int) {
 	return m.roots, m.rootsVisited
 }
 
-func (m *MarkSweep) Marked() *Set[Pointer] {
-	return &m.marked
+func (m *MarkSweep) Marked(p Pointer) bool {
+	return m.marked.Has(p)
 }
 
-func (m *MarkSweep) FieldsVisited() map[Pointer]int {
-	return m.fieldsVisited
+func (m *MarkSweep) FieldsVisited(p Pointer) int {
+	return m.fieldsVisited[p]
 }
 
 func (m *MarkSweep) Context() Context {
