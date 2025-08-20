@@ -31,25 +31,24 @@ func main() {
 	for _, e := range entries {
 		imageURL := "https://raw.githubusercontent.com/mknyszek/greentea-visuals/refs/heads/main/img/" + e.Name()
 		log.Print("pushing ", imageURL)
-		for try := 0; try < 10; try++ {
-			err := createImageSlide(*presentationID, imageURL)
-			if err == nil {
-				break
-			}
-			log.Print("error:", err)
-			next := min(time.Second*(time.Duration(1)<<try), 60*time.Second)
-			log.Print("retrying in ", next)
-			time.Sleep(next)
+		if err := createImageSlide(*presentationID, imageURL); err != nil {
+			log.Fatal("error:", err)
 		}
 	}
 }
 
 func createImageSlide(presentationID, imageURL string) error {
-	slideID, err := createSlide(presentationID)
+	var slideID string
+	err := retry(func() (err error) {
+		slideID, err = createSlide(presentationID)
+		return err
+	})
 	if err != nil {
 		return err
 	}
-	return addImageToSlide(presentationID, slideID, imageURL)
+	return retry(func() error {
+		return addImageToSlide(presentationID, slideID, imageURL)
+	})
 }
 
 func addImageToSlide(presentationID, slideID, imageURL string) error {
@@ -118,4 +117,18 @@ func slidesClient() *slides.Service {
 		log.Fatalf("error creating Slides client: %v", err)
 	}
 	return slidesService
+}
+
+func retry(f func() error) (err error) {
+	for try := 0; try < 10; try++ {
+		err = f()
+		if err == nil {
+			return
+		}
+		log.Print("error:", err)
+		next := min(time.Second*(time.Duration(1)<<try), 60*time.Second)
+		log.Print("retrying in ", next)
+		time.Sleep(next)
+	}
+	return
 }
