@@ -51,7 +51,8 @@ func (g *GreenTea) FieldsVisited(p Pointer) int {
 }
 
 func (g *GreenTea) Queued(p Pointer) bool {
-	return false
+	b := g.heap.BlockOf(p)
+	return b != nil && (g.queue.Has(b) || g.ctx.Block == b) && g.marked.Has(p) && !g.scanned.Has(p)
 }
 
 func (g *GreenTea) Scanned(p Pointer) bool {

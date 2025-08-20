@@ -136,17 +136,43 @@ func drawObjGraph(c *gg.Context, info string, s gcState) {
 
 	height := c.Height() * 85 / 100 // Leave bottom 15% empty for closed captioning.
 	split := c.Width() / 4
-	infoArea := image.Rect(0, 64, split, 192+64)
-	rootsArea := image.Rect(0, 192+64, split, 192+64+height/2)
+	const infoHeight = 224
+	const legendHeight = 256
+	const topPadding = 32
+	sideHeight := c.Height() * 80 / 100
+	infoArea := image.Rect(0, topPadding, split, topPadding+infoHeight)
+	rootsArea := image.Rect(0, infoArea.Max.Y, split, sideHeight-legendHeight)
+	legendArea := image.Rect(0, rootsArea.Max.Y, split, rootsArea.Max.Y+legendHeight)
 	heapArea := image.Rect(split, 0, c.Width(), height)
 
 	c.SetColor(color.Black)
-	must(setFontFace(c, "./RobotoMono-Regular.ttf", 26))
+	must(setFontFace(c, "./RobotoMono-Regular.ttf", 32))
 
 	c.SetLineCapButt()
 	c.SetLineJoin(gg.LineJoinRound)
 	c.SetLineWidth(4.0)
 
+	c.DrawRectangle(float64(legendArea.Min.X+16), float64(legendArea.Min.Y+16), float64(legendArea.Dx()-32), float64(legendArea.Dy()-32))
+	c.Stroke()
+
+	c.SetColor(faded)
+	c.DrawRectangle(float64(legendArea.Min.X+32), float64(legendArea.Min.Y+48), 16, 16)
+	c.Fill()
+	c.DrawStringAnchored("not visited", float64(legendArea.Min.X)+64, float64(legendArea.Min.Y)+50, 0, 0.5)
+	c.SetColor(queued)
+	c.DrawRectangle(float64(legendArea.Min.X+32), float64(legendArea.Min.Y+96), 16, 16)
+	c.Fill()
+	c.DrawStringAnchored("on work list", float64(legendArea.Min.X)+64, float64(legendArea.Min.Y)+98, 0, 0.5)
+	c.SetColor(selected)
+	c.DrawRectangle(float64(legendArea.Min.X+32), float64(legendArea.Min.Y+144), 16, 16)
+	c.Fill()
+	c.DrawStringAnchored("active", float64(legendArea.Min.X)+64, float64(legendArea.Min.Y)+146, 0, 0.5)
+	c.SetColor(color.Black)
+	c.DrawRectangle(float64(legendArea.Min.X+32), float64(legendArea.Min.Y+192), 16, 16)
+	c.Fill()
+	c.DrawStringAnchored("visited", float64(legendArea.Min.X)+64, float64(legendArea.Min.Y)+194, 0, 0.5)
+
+	c.SetColor(color.Black)
 	c.DrawRectangle(float64(infoArea.Min.X+16), float64(infoArea.Min.Y+16), float64(infoArea.Dx()-32), float64(infoArea.Dy()-32))
 	c.Stroke()
 
@@ -154,10 +180,11 @@ func drawObjGraph(c *gg.Context, info string, s gcState) {
 
 	must(setFontFace(c, "./RobotoMono-Regular.ttf", 36))
 
+	const ptrWordSize = 64
+
 	var rootAnchors []image.Point
 	for i := range roots {
 		const padding = 16
-		const baseHeight = 36
 
 		r := &roots[i]
 		if ctx.Root >= 0 && i == ctx.Root {
@@ -170,18 +197,24 @@ func drawObjGraph(c *gg.Context, info string, s gcState) {
 
 		inc := rootsArea.Dy() / (len(roots) + 1)
 		anchor := image.Pt(rootsArea.Min.X+rootsArea.Dx()*3/4, rootsArea.Min.Y+inc*(i+1))
-		c.DrawStringAnchored(r.Name, float64(rootsArea.Min.X)+padding*2, float64(anchor.Y), 0, 0.5)
-		c.DrawRectangle(float64(rootsArea.Min.X)+padding, float64(anchor.Y-baseHeight/2-padding), float64(anchor.X-rootsArea.Min.X), baseHeight+2*padding)
-		c.Stroke()
+		c.DrawStringAnchored(r.Name, float64(anchor.X)-padding, float64(anchor.Y)-4, 1, 0.5)
+
+		if ctx.Root >= 0 && i == ctx.Root {
+			c.SetColor(selected)
+		} else if i < rootsVisited {
+			c.SetColor(color.Black)
+		} else {
+			c.SetColor(faded)
+		}
 
 		anchor.X += padding
+		c.DrawCircle(float64(anchor.X), float64(anchor.Y), ptrWordSize/6)
+		c.Fill()
 		rootAnchors = append(rootAnchors, anchor)
 	}
 
 	c.SetColor(color.Black)
 	must(setFontFace(c, "./RobotoMono-Regular.ttf", 28))
-
-	const ptrWordSize = 64
 
 	const blockColumns = 1
 	const blockHeight = 128
@@ -200,7 +233,7 @@ func drawObjGraph(c *gg.Context, info string, s gcState) {
 		row := (i / blockColumns) + 1
 		cx, cy := float64(heapArea.Min.X)+blockColInc/2+float64(col)*blockColInc, float64(heapArea.Min.Y)+float64(row)*blockRowInc
 
-		must(setFontFace(c, "./RobotoMono-Regular.ttf", 28))
+		must(setFontFace(c, "./RobotoMono-Regular.ttf", 40))
 
 		bx := cx - blockWidth/2
 		by := cy - blockHeight/2
@@ -218,9 +251,9 @@ func drawObjGraph(c *gg.Context, info string, s gcState) {
 			c.SetLineWidth(2.0)
 			c.SetDash(4.0)
 		}
-		c.DrawRoundedRectangle(bx, by, blockWidth, blockHeight, 12.0)
+		c.DrawRoundedRectangle(bx, by, blockWidth, blockHeight, 8.0)
 		c.Stroke()
-		c.DrawStringAnchored(fmt.Sprintf("%X", b.Address>>12), bx, by-12, 0, 0)
+		c.DrawStringAnchored(fmt.Sprintf("%X", b.Address>>12), bx-40, cy+12, 0, 0)
 
 		must(setFontFace(c, "./RobotoMono-Regular.ttf", 24))
 
@@ -250,12 +283,10 @@ func drawObjGraph(c *gg.Context, info string, s gcState) {
 				c.DrawRectangle(ox+float64(fi*ptrWordSize), oy, ptrWordSize, ptrWordSize)
 				c.Stroke()
 
-				if s.Marked(p) {
-					if ctx.Object == p && ctx.Field >= 0 && ctx.Field == k {
-						c.SetColor(selected)
-					} else {
-						c.SetColor(color.Black)
-					}
+				if ctx.Object == p && ctx.Field >= 0 && ctx.Field == k {
+					c.SetColor(selected)
+				} else if k < s.FieldsVisited(p) {
+					c.SetColor(color.Black)
 				} else {
 					c.SetColor(faded)
 				}
@@ -280,8 +311,8 @@ func drawObjGraph(c *gg.Context, info string, s gcState) {
 				c.SetDash(2.0)
 			} else {
 				c.SetDash()
-				must(setFontFace(c, "./RobotoMono-Regular.ttf", 24))
-				c.DrawStringAnchored(obj.Type, ox, oy-8, 0, 0)
+				must(setFontFace(c, "./RobotoMono-Regular.ttf", 28))
+				c.DrawStringAnchored(obj.Type, ox, oy-12, 0, 0)
 			}
 
 			c.SetLineWidth(4.0)
@@ -290,23 +321,23 @@ func drawObjGraph(c *gg.Context, info string, s gcState) {
 		}
 
 		// Draw metadata bitmaps.
-		if hasScanned {
-			c.SetLineWidth(2.0)
-			c.SetDash()
+		c.SetLineWidth(2.0)
+		c.SetDash()
 
-			const bitSize = 12
-			mx, my := bx+blockWidth-16-float64(len(b.Objects))*bitSize, by+16
-			for _, p := range b.Objects {
-				if s.Marked(p) {
-					c.SetColor(color.Black)
-					c.DrawRectangle(mx, my, bitSize, bitSize)
-					c.Fill()
-				}
-				c.SetColor(faded)
+		const bitSize = 12
+		mx, my := bx+blockWidth-16-float64(len(b.Objects))*bitSize, by+16
+		for _, p := range b.Objects {
+			if s.Marked(p) {
+				c.SetColor(color.Black)
 				c.DrawRectangle(mx, my, bitSize, bitSize)
-				c.Stroke()
-				mx += bitSize
+				c.Fill()
 			}
+			c.SetColor(faded)
+			c.DrawRectangle(mx, my, bitSize, bitSize)
+			c.Stroke()
+			mx += bitSize
+		}
+		if hasScanned {
 			sx, sy := bx+blockWidth-16-float64(len(b.Objects))*bitSize, by+32
 			for _, p := range b.Objects {
 				if ss.Scanned(p) {
