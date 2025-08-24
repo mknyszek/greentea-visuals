@@ -125,10 +125,25 @@ func Draw(s gcState) *gg.Context {
 	return c
 }
 
+func lighten(c color.RGBA) color.RGBA {
+	c.R = satAdd(c.R, uint8(float64(255-c.R)*0.8))
+	c.G = satAdd(c.G, uint8(float64(255-c.G)*0.8))
+	c.B = satAdd(c.B, uint8(float64(255-c.B)*0.8))
+	return c
+}
+
+func satAdd(x, y uint8) uint8 {
+	z := uint16(x) + uint16(y)
+	if z > 255 {
+		return 255
+	}
+	return uint8(z)
+}
+
 func drawObjGraph(c *gg.Context, info string, s gcState) {
 	faded := color.Gray{Y: 153}
-	selected := color.RGBA{R: 0xff, G: 0, B: 0, A: 255}
-	queued := color.RGBA{R: 0x00, G: 0xad, B: 0xd8, A: 255}
+	selected := color.RGBA{R: 0xcc, G: 0x33, B: 0x11, A: 255}
+	queued := color.RGBA{R: 0x00, G: 0x77, B: 0xbb, A: 255}
 
 	roots, rootsVisited := s.Roots()
 	h := s.Heap()
@@ -150,28 +165,43 @@ func drawObjGraph(c *gg.Context, info string, s gcState) {
 
 	c.SetLineCapButt()
 	c.SetLineJoin(gg.LineJoinRound)
-	c.SetLineWidth(4.0)
 
+	// Legend.
+
+	c.SetLineWidth(4.0)
 	c.DrawRectangle(float64(legendArea.Min.X+16), float64(legendArea.Min.Y+16), float64(legendArea.Dx()-32), float64(legendArea.Dy()-32))
 	c.Stroke()
 
+	c.SetLineWidth(3.0)
+
 	c.SetColor(faded)
 	c.DrawRectangle(float64(legendArea.Min.X+32), float64(legendArea.Min.Y+48), 16, 16)
-	c.Fill()
+	c.Stroke()
 	c.DrawStringAnchored("not visited", float64(legendArea.Min.X)+64, float64(legendArea.Min.Y)+50, 0, 0.5)
-	c.SetColor(queued)
+
+	c.SetColor(lighten(queued))
 	c.DrawRectangle(float64(legendArea.Min.X+32), float64(legendArea.Min.Y+96), 16, 16)
 	c.Fill()
+	c.SetColor(queued)
+	c.DrawRectangle(float64(legendArea.Min.X+32), float64(legendArea.Min.Y+96), 16, 16)
+	c.Stroke()
 	c.DrawStringAnchored("on work list", float64(legendArea.Min.X)+64, float64(legendArea.Min.Y)+98, 0, 0.5)
-	c.SetColor(selected)
+
+	c.SetColor(lighten(selected))
 	c.DrawRectangle(float64(legendArea.Min.X+32), float64(legendArea.Min.Y+144), 16, 16)
 	c.Fill()
+	c.SetColor(selected)
+	c.DrawRectangle(float64(legendArea.Min.X+32), float64(legendArea.Min.Y+144), 16, 16)
+	c.Stroke()
 	c.DrawStringAnchored("active", float64(legendArea.Min.X)+64, float64(legendArea.Min.Y)+146, 0, 0.5)
+
 	c.SetColor(color.Black)
 	c.DrawRectangle(float64(legendArea.Min.X+32), float64(legendArea.Min.Y+192), 16, 16)
-	c.Fill()
+	c.Stroke()
 	c.DrawStringAnchored("visited", float64(legendArea.Min.X)+64, float64(legendArea.Min.Y)+194, 0, 0.5)
 
+	// Info.
+	c.SetLineWidth(4.0)
 	c.SetColor(color.Black)
 	c.DrawRectangle(float64(infoArea.Min.X+16), float64(infoArea.Min.Y+16), float64(infoArea.Dx()-32), float64(infoArea.Dy()-32))
 	c.Stroke()
@@ -266,6 +296,17 @@ func drawObjGraph(c *gg.Context, info string, s gcState) {
 			oy := by + blockHeight - objPadding - ptrWordSize
 			width := b.ElemSize / PointerSize * ptrWordSize
 			baseObjX += float64(width + objPadding)
+
+			// Draw object fill.
+			if ctx.Object == p {
+				c.SetColor(lighten(selected))
+			} else if s.Queued(p) {
+				c.SetColor(lighten(queued))
+			} else {
+				c.SetColor(color.White)
+			}
+			c.DrawRectangle(ox, oy, float64(width), ptrWordSize)
+			c.Fill()
 
 			// Draw object pointer fields.
 			objBoxes[p] = image.Rect(int(ox), int(oy), int(ox)+width, int(oy+ptrWordSize))
