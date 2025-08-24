@@ -142,6 +142,7 @@ func satAdd(x, y uint8) uint8 {
 
 func drawObjGraph(c *gg.Context, info string, s gcState) {
 	faded := color.Gray{Y: 153}
+	lightenFaded := color.Gray{Y: 0xbb}
 	selected := color.RGBA{R: 0xcc, G: 0x33, B: 0x11, A: 255}
 	queued := color.RGBA{R: 0x00, G: 0x77, B: 0xbb, A: 255}
 
@@ -195,6 +196,9 @@ func drawObjGraph(c *gg.Context, info string, s gcState) {
 	c.Stroke()
 	c.DrawStringAnchored("active", float64(legendArea.Min.X)+64, float64(legendArea.Min.Y)+146, 0, 0.5)
 
+	c.SetColor(lightenFaded)
+	c.DrawRectangle(float64(legendArea.Min.X+32), float64(legendArea.Min.Y+192), 16, 16)
+	c.Fill()
 	c.SetColor(color.Black)
 	c.DrawRectangle(float64(legendArea.Min.X+32), float64(legendArea.Min.Y+192), 16, 16)
 	c.Stroke()
@@ -302,6 +306,8 @@ func drawObjGraph(c *gg.Context, info string, s gcState) {
 				c.SetColor(lighten(selected))
 			} else if s.Queued(p) {
 				c.SetColor(lighten(queued))
+			} else if s.Marked(p) {
+				c.SetColor(lightenFaded)
 			} else {
 				c.SetColor(color.White)
 			}
