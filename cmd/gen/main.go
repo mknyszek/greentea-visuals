@@ -132,6 +132,13 @@ func lighten(c color.RGBA) color.RGBA {
 	return c
 }
 
+func lightenLess(c color.RGBA) color.RGBA {
+	c.R = satAdd(c.R, uint8(float64(255-c.R)*0.5))
+	c.G = satAdd(c.G, uint8(float64(255-c.G)*0.5))
+	c.B = satAdd(c.B, uint8(float64(255-c.B)*0.5))
+	return c
+}
+
 func satAdd(x, y uint8) uint8 {
 	z := uint16(x) + uint16(y)
 	if z > 255 {
@@ -273,16 +280,24 @@ func drawObjGraph(c *gg.Context, info string, s gcState) {
 		by := cy - blockHeight/2
 
 		if ctx.Block == b {
+			c.SetColor(lightenLess(lighten(selected)))
+		} else if s.BlockQueued(b) {
+			c.SetColor(lightenLess(lighten(queued)))
+		} else {
+			c.SetColor(color.White)
+		}
+		c.DrawRoundedRectangle(bx, by, blockWidth, blockHeight, 8.0)
+		c.Fill()
+
+		c.SetLineWidth(2.0)
+		if ctx.Block == b {
 			c.SetColor(selected)
-			c.SetLineWidth(4.0)
 			c.SetDash()
 		} else if s.BlockQueued(b) {
 			c.SetColor(queued)
-			c.SetLineWidth(4.0)
 			c.SetDash()
 		} else {
 			c.SetColor(color.Black)
-			c.SetLineWidth(2.0)
 			c.SetDash(4.0)
 		}
 		c.DrawRoundedRectangle(bx, by, blockWidth, blockHeight, 8.0)
@@ -376,9 +391,11 @@ func drawObjGraph(c *gg.Context, info string, s gcState) {
 		for _, p := range b.Objects {
 			if s.Marked(p) {
 				c.SetColor(color.Black)
-				c.DrawRectangle(mx, my, bitSize, bitSize)
-				c.Fill()
+			} else {
+				c.SetColor(color.White)
 			}
+			c.DrawRectangle(mx, my, bitSize, bitSize)
+			c.Fill()
 			c.SetColor(faded)
 			c.DrawRectangle(mx, my, bitSize, bitSize)
 			c.Stroke()
@@ -389,9 +406,11 @@ func drawObjGraph(c *gg.Context, info string, s gcState) {
 			for _, p := range b.Objects {
 				if ss.Scanned(p) {
 					c.SetColor(color.Black)
-					c.DrawRectangle(sx, sy, bitSize, bitSize)
-					c.Fill()
+				} else {
+					c.SetColor(color.White)
 				}
+				c.DrawRectangle(sx, sy, bitSize, bitSize)
+				c.Fill()
 				c.SetColor(faded)
 				c.DrawRectangle(sx, sy, bitSize, bitSize)
 				c.Stroke()
